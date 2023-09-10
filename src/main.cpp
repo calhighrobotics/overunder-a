@@ -1,8 +1,10 @@
 #include "main.h"
 #include "okapi/impl/device/controller.hpp"
 #include "okapi/impl/device/controllerUtil.hpp"
+#include "pros/llemu.hpp"
+#include <string>
 
-using namespace okapi::literals
+using namespace okapi::literals;
 
 /**
  * A callback function for LLEMU's center button.
@@ -79,17 +81,20 @@ void autonomous() {}
  */
 void opcontrol() {
 	//ZE MASTARRRRR
-	okapi::Controller master(okapi::ControllerId::master)
+	
+	okapi::Controller master(okapi::ControllerId::master);
 	//initialize motor groups in the chassiss
-	auto chassis = okapi::ChassisControllerBuilder().withMotors({1, 2, 3}, {4, 5, 6}).build();
+	auto chassis = okapi::ChassisControllerBuilder().withMotors({1, 2, -3}, {4, 5, -6}).withDimensions({okapi::AbstractMotor::gearset::green}, {{4_in, 12.5_in}, okapi::imev5GreenTPR}).build();
 	// the abstraction for the motors as a skid steer (tank) drivetrain
 	auto model = std::dynamic_pointer_cast<okapi::SkidSteerModel>(chassis->getModel());
 
 	while (true) {
+		pros::lcd::set_text(1, "Hello Bozo1");
+		pros::lcd::set_text(1, std::to_string(master.getAnalog(okapi::ControllerAnalog::rightX)));
 		model->arcade(
-      		master.getAnalog(),
-      		master.getAnalog(),
-      		master.getAnalog()
+      		master.getAnalog(okapi::ControllerAnalog::rightX),
+      		master.getAnalog(okapi::ControllerAnalog::leftY),
+      		master.getAnalog(okapi::ControllerAnalog::leftX)
 		);
 
 		pros::delay(20);
