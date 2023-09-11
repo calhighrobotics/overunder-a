@@ -81,20 +81,52 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-	//ZE MASTARRRRR
-	
+  // initializes the controller	
 	okapi::Controller master(okapi::ControllerId::master);
-	//initialize motor groups in the chassiss
+	//initialize motor groups in the chassis (drivetrain)
 	auto chassis = okapi::ChassisControllerBuilder().withMotors({topLMot, botLMot}, {topRMot, botRMot}).withDimensions({okapi::AbstractMotor::gearset::green}, {{4_in, 12.5_in}, okapi::imev5GreenTPR}).build();
-	// the abstraction for the motors as a skid steer (tank) drivetrain
+	// abstraction for the motors as a skid steer (tank) drivetrain
 	auto model = std::dynamic_pointer_cast<okapi::SkidSteerModel>(chassis->getModel());
 
+  model->forward(200);
+
+  // initializing motor groups
+  auto intake = okapi::MotorGroup({intakeMot});
+  auto catapult = okapi::MotorGroup({cataMot});
+
+  // initializing controller buttons
+  auto l1 = okapi::ControllerButton(okapi::ControllerDigital::L1);
+	auto l2 = okapi::ControllerButton(okapi::ControllerDigital::L2);
+  auto r1 = okapi::ControllerButton(okapi::ControllerDigital::R1);
+	auto r2 = okapi::ControllerButton(okapi::ControllerDigital::R2);
+
+  // prevents jerks
+  intake.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
+  catapult.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
+
 	while (true) {
+    // gets input from the joysticks
 		model->arcade(
       		master.getAnalog(okapi::ControllerAnalog::rightX),
       		master.getAnalog(okapi::ControllerAnalog::leftY),
       		master.getAnalog(okapi::ControllerAnalog::leftX)
 		);
+
+    // controls intakes
+    if (l1.isPressed() == true) {
+			intake.moveVoltage(6000);
+		} else if (l2.isPressed() == true) {
+			intake.moveVoltage(-6000);
+		} else {
+      intake.moveVoltage(0);
+    }
+
+    // controls catapult
+    if (r1.isPressed() == true) {
+      catapult.moveVoltage(12000);
+    } else {
+      catapult.moveVoltage(0);
+    }
 
 		pros::delay(20);
 	}
