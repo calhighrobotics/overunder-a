@@ -95,8 +95,8 @@ void opcontrol() {
   auto catapult = okapi::MotorGroup({cataMot});
 
   // initializing controller buttons
-  auto l1 = okapi::ControllerButton(okapi::ControllerDigital::L1);
-	auto l2 = okapi::ControllerButton(okapi::ControllerDigital::L2);
+  auto upArrow = okapi::ControllerButton(okapi::ControllerDigital::up);
+	auto downArrow = okapi::ControllerButton(okapi::ControllerDigital::down);
   auto r1 = okapi::ControllerButton(okapi::ControllerDigital::R1);
 	auto r2 = okapi::ControllerButton(okapi::ControllerDigital::R2);
 
@@ -113,10 +113,10 @@ void opcontrol() {
 		);
 
     // controls intakes
-    if (l1.isPressed() == true) {
-			intake.moveVoltage(6000);
-		} else if (l2.isPressed() == true) {
-			intake.moveVoltage(-6000);
+    if (upArrow.isPressed() == true) {
+			intake.moveVoltage(12000);
+		} else if (downArrow.isPressed() == true) {
+			intake.moveVoltage(-12000);
 		} else {
       intake.moveVoltage(0);
     }
