@@ -1,8 +1,8 @@
 #include "main.h"
+#include "const.h"
 #include "okapi/impl/device/controller.hpp"
 #include "okapi/impl/device/controllerUtil.hpp"
 #include "pros/llemu.hpp"
-#include "const.h"
 #include <string>
 
 using namespace okapi::literals;
@@ -14,13 +14,13 @@ using namespace okapi::literals;
  * "I was pressed!" and nothing.
  */
 void on_center_button() {
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
-	} else {
-		pros::lcd::clear_line(2);
-	}
+  static bool pressed = false;
+  pressed = !pressed;
+  if (pressed) {
+    pros::lcd::set_text(2, "I was pressed!");
+  } else {
+    pros::lcd::clear_line(2);
+  }
 }
 
 /**
@@ -30,10 +30,10 @@ void on_center_button() {
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello Bozo");
+  pros::lcd::initialize();
+  pros::lcd::set_text(1, "Hello Bozo");
 
-	pros::lcd::register_btn1_cb(on_center_button);
+  pros::lcd::register_btn1_cb(on_center_button);
 }
 
 /**
@@ -81,12 +81,17 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-  // initializes the controller	
-	okapi::Controller master(okapi::ControllerId::master);
-	//initialize motor groups in the chassis (drivetrain)
-	auto chassis = okapi::ChassisControllerBuilder().withMotors({topLMot, botLMot}, {topRMot, botRMot}).withDimensions({okapi::AbstractMotor::gearset::green}, {{4_in, 12.5_in}, okapi::imev5GreenTPR}).build();
-	// abstraction for the motors as a skid steer (tank) drivetrain
-	auto model = std::dynamic_pointer_cast<okapi::SkidSteerModel>(chassis->getModel());
+  // initializes the controller
+  okapi::Controller master(okapi::ControllerId::master);
+  // initialize motor groups in the chassis (drivetrain)
+  auto chassis = okapi::ChassisControllerBuilder()
+                     .withMotors({topLMot, botLMot}, {topRMot, botRMot})
+                     .withDimensions({okapi::AbstractMotor::gearset::green},
+                                     {{4_in, 12.5_in}, okapi::imev5GreenTPR})
+                     .build();
+  // abstraction for the motors as a skid steer (tank) drivetrain
+  auto model =
+      std::dynamic_pointer_cast<okapi::SkidSteerModel>(chassis->getModel());
 
   model->forward(200);
 
@@ -96,28 +101,26 @@ void opcontrol() {
 
   // initializing controller buttons
   auto upArrow = okapi::ControllerButton(okapi::ControllerDigital::up);
-	auto downArrow = okapi::ControllerButton(okapi::ControllerDigital::down);
+  auto downArrow = okapi::ControllerButton(okapi::ControllerDigital::down);
   auto r1 = okapi::ControllerButton(okapi::ControllerDigital::R1);
-	auto r2 = okapi::ControllerButton(okapi::ControllerDigital::R2);
+  auto r2 = okapi::ControllerButton(okapi::ControllerDigital::R2);
 
   // prevents jerks
   intake.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
   catapult.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
 
-	while (true) {
+  while (true) {
     // gets input from the joysticks
-		model->arcade(
-      		master.getAnalog(okapi::ControllerAnalog::rightX),
-      		master.getAnalog(okapi::ControllerAnalog::leftY),
-      		master.getAnalog(okapi::ControllerAnalog::leftX)
-		);
+    model->arcade(master.getAnalog(okapi::ControllerAnalog::rightX),
+                  master.getAnalog(okapi::ControllerAnalog::leftY),
+                  master.getAnalog(okapi::ControllerAnalog::leftX));
 
     // controls intakes
     if (upArrow.isPressed() == true) {
-			intake.moveVoltage(12000);
-		} else if (downArrow.isPressed() == true) {
-			intake.moveVoltage(-12000);
-		} else {
+      intake.moveVoltage(12000);
+    } else if (downArrow.isPressed() == true) {
+      intake.moveVoltage(-12000);
+    } else {
       intake.moveVoltage(0);
     }
 
@@ -128,6 +131,7 @@ void opcontrol() {
       catapult.moveVoltage(0);
     }
 
-		pros::delay(20);
-	}
+	//Delay in order to avoid a super-fast control loop
+    pros::delay(20);
+  }
 }
