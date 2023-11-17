@@ -1,8 +1,12 @@
 #include "main.h"
 #include "const.h"
+#include "okapi/api/units/QAngle.hpp"
 #include "okapi/impl/device/controller.hpp"
 #include "okapi/impl/device/controllerUtil.hpp"
+#include "okapi/impl/device/motor/motorGroup.hpp"
+#include "pros/adi.hpp"
 #include "pros/llemu.hpp"
+#include "pros/rtos.hpp"
 #include <string>
 
 using namespace okapi::literals;
@@ -65,7 +69,82 @@ void competition_initialize() {}
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
-void autonomous() {}
+void autonomous() {
+
+  bool skills = false;
+
+  if (skills) {
+    // initialize motor groups in the chassis (drivetrain)
+    okapi::MotorGroup mGroup = {-2, 4};
+    auto chassis = okapi::ChassisControllerBuilder()
+                       .withMotors({topLMot, botLMot}, {topRMot, botRMot})
+                       .withDimensions({okapi::AbstractMotor::gearset::green},
+                                       {{4_in, 12.5_in}, okapi::imev5GreenTPR})
+                       .build();
+    // abstraction for the motors as a skid steer (tank) drivetrain
+    auto model =
+        std::dynamic_pointer_cast<okapi::SkidSteerModel>(chassis->getModel());
+
+    // initializing motor groups
+    auto intake = okapi::MotorGroup({11,-12});
+    auto catapult = okapi::MotorGroup({cataMot});
+
+    // initialize pneumatics
+    pros::ADIDigitalOut wings(wingsADIPort);
+
+    // set wings to close
+    wings.set_value(false);
+
+    // prevents jerks
+    intake.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
+    catapult.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
+
+    intake.moveVoltage(-12000);
+    pros::delay(200);
+    intake.moveVoltage(0);
+
+    mGroup.setBrakeMode(okapi::AbstractMotor::brakeMode::hold);
+    mGroup.moveVoltage(12000);
+    pros::delay(710);
+    mGroup.moveVoltage(0);
+	catapult.moveVoltage(12000);
+    
+  } else {
+	    // initialize motor groups in the chassis (drivetrain)
+    okapi::MotorGroup mGroup = {topLMot, botLMot, -2, 4};
+    auto chassis = okapi::ChassisControllerBuilder()
+                       .withMotors({topLMot, botLMot}, {topRMot, botRMot})
+                       .withDimensions({okapi::AbstractMotor::gearset::green},
+                                       {{4_in, 12.5_in}, okapi::imev5GreenTPR})
+                       .build();
+    // abstraction for the motors as a skid steer (tank) drivetrain
+    auto model =
+        std::dynamic_pointer_cast<okapi::SkidSteerModel>(chassis->getModel());
+
+    // initializing motor groups
+    auto intake = okapi::MotorGroup({intakeMot});
+    auto catapult = okapi::MotorGroup({cataMot});
+
+    // initialize pneumatics
+    pros::ADIDigitalOut wings(wingsADIPort);
+
+    // set wings to close
+    wings.set_value(false);
+
+    // prevents jerks
+    intake.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
+    catapult.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
+
+    //intake.moveVoltage(-12000);
+    //pros::delay(200);
+   // intake.moveVoltage(0);
+
+    mGroup.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
+    mGroup.moveVoltage(12000);
+    pros::delay(2000);
+    mGroup.moveVoltage(0);
+  }
+}
 
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -93,17 +172,23 @@ void opcontrol() {
   auto model =
       std::dynamic_pointer_cast<okapi::SkidSteerModel>(chassis->getModel());
 
-  model->forward(200);
-
   // initializing motor groups
-  auto intake = okapi::MotorGroup({intakeMot});
+  auto intake = okapi::MotorGroup({11,-12});
   auto catapult = okapi::MotorGroup({cataMot});
 
   // initializing controller buttons
-  auto upArrow = okapi::ControllerButton(okapi::ControllerDigital::up);
-  auto downArrow = okapi::ControllerButton(okapi::ControllerDigital::down);
+  auto upArrow = okapi::ControllerButton(okapi::ControllerDigital::L1);
+  auto downArrow = okapi::ControllerButton(okapi::ControllerDigital::L2);
   auto r1 = okapi::ControllerButton(okapi::ControllerDigital::R1);
   auto r2 = okapi::ControllerButton(okapi::ControllerDigital::R2);
+  auto wingIn = okapi::ControllerButton(okapi::ControllerDigital::left);
+  auto wingOut = okapi::ControllerButton(okapi::ControllerDigital::right);
+
+  // initialize pneumatics
+  pros::ADIDigitalOut wings(wingsADIPort);
+
+  // set wings to close
+  wings.set_value(false);
 
   // prevents jerks
   intake.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
@@ -131,7 +216,14 @@ void opcontrol() {
       catapult.moveVoltage(0);
     }
 
-	//Delay in order to avoid a super-fast control loop
+    // pnuematics logic
+    if (wingOut.isPressed() == true) {
+      wings.set_value(true);
+    } else if (wingIn.isPressed() == true) {
+      wings.set_value(false);
+    }
+
+    // Delay in order to avoid a super-fast control loop
     pros::delay(20);
   }
 }
