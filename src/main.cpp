@@ -1,6 +1,9 @@
 #include "main.h"
 #include "const.h"
+#include "lemlib/chassis/chassis.hpp"
+#include "okapi/api/chassis/model/chassisModel.hpp"
 #include "okapi/api/units/QAngle.hpp"
+#include "okapi/impl/device/button/controllerButton.hpp"
 #include "okapi/impl/device/controller.hpp"
 #include "okapi/impl/device/controllerUtil.hpp"
 #include "okapi/impl/device/motor/motorGroup.hpp"
@@ -9,7 +12,72 @@
 #include "pros/rtos.hpp"
 #include <string>
 
+ASSET(path_txt);
+
 using namespace okapi::literals;
+
+
+  pros::Motor left_front_motor(10, pros::E_MOTOR_GEARSET_06, true);
+  pros::Motor left_back_motor(2, pros::E_MOTOR_GEARSET_06, true);
+  pros::Motor right_front_motor(12, pros::E_MOTOR_GEARSET_06, false);
+  pros::Motor right_back_motor(1, pros::E_MOTOR_GEARSET_06, false);
+
+  pros::MotorGroup leftMotors({left_front_motor, left_back_motor});
+  pros::MotorGroup rightMotors({right_front_motor, right_back_motor});
+
+  pros::Rotation horizontalEnc(2);
+// horizontal tracking wheel. 2.75" diameter, 3.7" offset, back of the robot
+  lemlib::TrackingWheel horizontal(&horizontalEnc, lemlib::Omniwheel::NEW_275, -7);
+
+  pros::Rotation horizontal2Enc(12);
+// horizontal tracking wheel. 2.75" diameter, 3.7" offset, back of the robot
+  lemlib::TrackingWheel horizontal2(&horizontal2Enc, lemlib::Omniwheel::NEW_275, 7);
+
+  lemlib::Drivetrain drivetrain{
+      &leftMotors,  // left drivetrain motors
+      &rightMotors, // right drivetrain motors
+      14,           // track width
+      lemlib::Omniwheel::NEW_325,
+      360,           // wheel rpm
+      2
+  };
+
+  pros::Imu inertial_sensor(11); // port 2
+
+  // odometry struct
+  lemlib::OdomSensors sensors{
+      nullptr, // vertical tracking wheel 1
+      nullptr, // vertical tracking wheel 2
+      &horizontal, // horizontal tracking wheel 1
+      nullptr, // we don't have a second tracking wheel, so we set it to nullptr
+      &inertial_sensor // inertial sensor
+  };
+
+  // forward/backward PID
+  lemlib::ControllerSettings lateralController{
+      10,   // kP
+      50,  // kD
+      1,   // smallErrorRange
+      100, // smallErrorTimeout
+      3,   // largeErrorRange
+      500, // largeErrorTimeout
+      5    // slew rate
+  };
+
+  // turning PID
+  lemlib::ControllerSettings angularController{
+      5,   // kP //WAS 4
+      50,  // kD
+      1,   // smallErrorRange
+      100, // smallErrorTimeout
+      3,   // largeErrorRange
+      500, // largeErrorTimeout
+      40   // slew rate
+  };
+
+  // create the chassis
+  lemlib::Chassis chassis(drivetrain, lateralController, angularController,
+                          sensors);
 
 /**
  * A callback function for LLEMU's center button.
@@ -33,12 +101,32 @@ void on_center_button() {
  * All other competition modes are blocked by initialize; it is recommended
  * to keep execution time for this mode under a few seconds.
  */
+
+ void screen() {
+    // loop forever
+    while (true) {
+        lemlib::Pose pose = chassis.getPose(); // get the current position of the robot
+        pros::lcd::print(0, "x: %f", pose.x); // print the x position
+        pros::lcd::print(1, "y: %f", pose.y); // print the y position
+        pros::lcd::print(2, "heading: %f", pose.theta); // print the heading
+        pros::delay(10);
+    }
+}
+ 
+void initialize() { 
+    pros::lcd::initialize(); // initialize brain screen
+    chassis.calibrate(); // calibrate the chassis
+    chassis.setPose(0, 0, 0);
+    pros::Task screenTask(screen); // create a task to print the position to the screen
+  }
+/*
 void initialize() {
   pros::lcd::initialize();
   pros::lcd::set_text(1, "Hello Bozo");
 
   pros::lcd::register_btn1_cb(on_center_button);
 }
+*/
 
 /**
  * Runs while the robot is in the disabled state of Field Management System or
@@ -72,78 +160,49 @@ void competition_initialize() {}
 void autonomous() {
 
   bool skills = false;
+  if (skills == true)
+  {
+      pros::ADIAnalogOut wing('A');
 
-  if (skills) {
-    // initialize motor groups in the chassis (drivetrain)
-    okapi::MotorGroup mGroup = {-2, 4};
-    auto chassis = okapi::ChassisControllerBuilder()
-                       .withMotors({topLMot, botLMot}, {topRMot, botRMot})
-                       .withDimensions({okapi::AbstractMotor::gearset::green},
-                                       {{4_in, 12.5_in}, okapi::imev5GreenTPR})
-                       .build();
-    // abstraction for the motors as a skid steer (tank) drivetrain
-    auto model =
-        std::dynamic_pointer_cast<okapi::SkidSteerModel>(chassis->getModel());
+      wing.set_value(false);
 
-    // initializing motor groups
-    auto intake = okapi::MotorGroup({11,-12});
-    auto catapult = okapi::MotorGroup({cataMot});
+      auto catapult = okapi::MotorGroup({-13, 20});
 
-    // initialize pneumatics
-    pros::ADIDigitalOut wings(wingsADIPort);
+      catapult.moveVoltage(12000);
 
-    // set wings to close
-    wings.set_value(false);
+      pros::delay(50 * 1000);
 
-    // prevents jerks
-    intake.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
-    catapult.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
+      catapult.moveVoltage(0);
+      chassis.setPose(0, 0 , 326);
 
-    intake.moveVoltage(-12000);
-    pros::delay(200);
-    intake.moveVoltage(0);
+      chassis.turnTo(0, 1, 1000, true, 80, false);
 
-    mGroup.setBrakeMode(okapi::AbstractMotor::brakeMode::hold);
-    mGroup.moveVoltage(12000);
-    pros::delay(710);
-    mGroup.moveVoltage(0);
-	catapult.moveVoltage(12000);
-    
-  } else {
-	    // initialize motor groups in the chassis (drivetrain)
-    okapi::MotorGroup mGroup = {topLMot, botLMot, -2, 4};
-    auto chassis = okapi::ChassisControllerBuilder()
-                       .withMotors({topLMot, botLMot}, {topRMot, botRMot})
-                       .withDimensions({okapi::AbstractMotor::gearset::green},
-                                       {{4_in, 12.5_in}, okapi::imev5GreenTPR})
-                       .build();
-    // abstraction for the motors as a skid steer (tank) drivetrain
-    auto model =
-        std::dynamic_pointer_cast<okapi::SkidSteerModel>(chassis->getModel());
+      chassis.setPose(46, 59, 270);
 
-    // initializing motor groups
-    auto intake = okapi::MotorGroup({intakeMot});
-    auto catapult = okapi::MotorGroup({cataMot});
+      chassis.follow(path_txt, 15, 20000, true, true);
+      wing.set_value(true);
+      pros::delay(4*1000);
+      wing.set_value(true);
 
-    // initialize pneumatics
-    pros::ADIDigitalOut wings(wingsADIPort);
-
-    // set wings to close
-    wings.set_value(false);
-
-    // prevents jerks
-    intake.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
-    catapult.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
-
-    //intake.moveVoltage(-12000);
-    //pros::delay(200);
-   // intake.moveVoltage(0);
-
-    mGroup.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
-    mGroup.moveVoltage(12000);
-    pros::delay(2000);
-    mGroup.moveVoltage(0);
+      pros::delay(2000);
   }
+
+  okapi::MotorGroup e = {10, 2};
+  okapi::MotorGroup g = {12, 1};
+
+  e.moveVoltage(12000);
+  g.moveVoltage(12000);
+  pros::delay(2000);
+
+  e.moveVoltage(0);
+  g.moveVoltage(0);
+
+
+
+
+
+  
+
 }
 
 /**
@@ -162,9 +221,9 @@ void autonomous() {
 void opcontrol() {
   // initializes the controller
   okapi::Controller master(okapi::ControllerId::master);
-  // initialize motor groups in the chassis (drivetrain)
+  // initialize motor groups in the chassis (drivetrain);
   auto chassis = okapi::ChassisControllerBuilder()
-                     .withMotors({topLMot, botLMot}, {topRMot, botRMot})
+                     .withMotors({10, 2}, {-12, -1})
                      .withDimensions({okapi::AbstractMotor::gearset::green},
                                      {{4_in, 12.5_in}, okapi::imev5GreenTPR})
                      .build();
@@ -172,9 +231,11 @@ void opcontrol() {
   auto model =
       std::dynamic_pointer_cast<okapi::SkidSteerModel>(chassis->getModel());
 
+
   // initializing motor groups
-  auto intake = okapi::MotorGroup({11,-12});
-  auto catapult = okapi::MotorGroup({cataMot});
+  auto intake = okapi::MotorGroup({3});
+  auto catapult = okapi::MotorGroup({-13, 20});
+  auto block = okapi::MotorGroup({19, -18});
 
   // initializing controller buttons
   auto upArrow = okapi::ControllerButton(okapi::ControllerDigital::L1);
@@ -184,8 +245,18 @@ void opcontrol() {
   auto wingIn = okapi::ControllerButton(okapi::ControllerDigital::left);
   auto wingOut = okapi::ControllerButton(okapi::ControllerDigital::right);
 
+  auto x = okapi::ControllerButton(okapi::ControllerDigital::X);
+  auto b = okapi::ControllerButton(okapi::ControllerDigital::B);
+
+  auto a = okapi::ControllerButton(okapi::ControllerDigital::A);
+  auto y = okapi::ControllerButton(okapi::ControllerDigital::Y);
+
   // initialize pneumatics
-  pros::ADIDigitalOut wings(wingsADIPort);
+  pros::ADIDigitalOut wings('A');
+
+  pros::ADIDigitalOut end('B');
+
+  end.set_value(false);
 
   // set wings to close
   wings.set_value(false);
@@ -202,9 +273,9 @@ void opcontrol() {
 
     // controls intakes
     if (upArrow.isPressed() == true) {
-      intake.moveVoltage(12000);
-    } else if (downArrow.isPressed() == true) {
       intake.moveVoltage(-12000);
+    } else if (downArrow.isPressed() == true) {
+      intake.moveVoltage(12000);
     } else {
       intake.moveVoltage(0);
     }
@@ -216,12 +287,29 @@ void opcontrol() {
       catapult.moveVoltage(0);
     }
 
+
+    if (x.isPressed() == true) {
+      block.moveVoltage(6000);
+    } else if (b.isPressed() == true) {
+      block.moveVoltage(-6000);
+    } else {
+      block.moveVoltage(0);
+    }
+
     // pnuematics logic
     if (wingOut.isPressed() == true) {
       wings.set_value(true);
     } else if (wingIn.isPressed() == true) {
       wings.set_value(false);
     }
+
+    if (a.isPressed() == true) {
+      end.set_value(true);
+    } else if (y.isPressed() == true) {
+      end.set_value(false);
+    }
+
+
 
     // Delay in order to avoid a super-fast control loop
     pros::delay(20);
