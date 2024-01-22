@@ -1,5 +1,4 @@
 #include "main.h"
-#include "const.h"
 #include "lemlib/chassis/chassis.hpp"
 #include "okapi/api/chassis/model/chassisModel.hpp"
 #include "okapi/api/units/QAngle.hpp"
@@ -9,6 +8,8 @@
 #include "okapi/impl/device/motor/motorGroup.hpp"
 #include "pros/adi.hpp"
 #include "pros/llemu.hpp"
+#include "pros/motors.h"
+#include "pros/motors.hpp"
 #include "pros/rtos.hpp"
 #include <string>
 
@@ -17,66 +18,61 @@ ASSET(path_txt);
 using namespace okapi::literals;
 
 
-  pros::Motor left_front_motor(10, pros::E_MOTOR_GEARSET_06, true);
-  pros::Motor left_back_motor(2, pros::E_MOTOR_GEARSET_06, true);
-  pros::Motor right_front_motor(12, pros::E_MOTOR_GEARSET_06, false);
-  pros::Motor right_back_motor(1, pros::E_MOTOR_GEARSET_06, false);
+  pros::Motor left_front_motor(10, pros::E_MOTOR_GEAR_BLUE, true);
+  pros::Motor left_back_motor(2, pros::E_MOTOR_GEAR_BLUE, true);
+  pros::Motor right_front_motor(12, pros::E_MOTOR_GEAR_BLUE,false);
+  pros::Motor right_back_motor(1,  pros::E_MOTOR_GEAR_BLUE,false);
 
   pros::MotorGroup leftMotors({left_front_motor, left_back_motor});
   pros::MotorGroup rightMotors({right_front_motor, right_back_motor});
 
-  pros::Rotation horizontalEnc(2);
-// horizontal tracking wheel. 2.75" diameter, 3.7" offset, back of the robot
-  lemlib::TrackingWheel horizontal(&horizontalEnc, lemlib::Omniwheel::NEW_275, -7);
-
-  pros::Rotation horizontal2Enc(12);
-// horizontal tracking wheel. 2.75" diameter, 3.7" offset, back of the robot
-  lemlib::TrackingWheel horizontal2(&horizontal2Enc, lemlib::Omniwheel::NEW_275, 7);
-
   lemlib::Drivetrain drivetrain{
       &leftMotors,  // left drivetrain motors
       &rightMotors, // right drivetrain motors
-      14,           // track width
+      13.75,           // track width
       lemlib::Omniwheel::NEW_325,
       360,           // wheel rpm
-      2
+      8
   };
 
   pros::Imu inertial_sensor(11); // port 2
 
   // odometry struct
   lemlib::OdomSensors sensors{
-      nullptr, // vertical tracking wheel 1
-      nullptr, // vertical tracking wheel 2
-      &horizontal, // horizontal tracking wheel 1
+      nullptr, //&horizontal, // vertical tracking wheel 1
+      nullptr ,// vertical tracking wheel 2
+      nullptr, // horizontal tracking wheel 1
       nullptr, // we don't have a second tracking wheel, so we set it to nullptr
       &inertial_sensor // inertial sensor
   };
 
   // forward/backward PID
-  lemlib::ControllerSettings lateralController{
-      10,   // kP
-      50,  // kD
-      1,   // smallErrorRange
-      100, // smallErrorTimeout
-      3,   // largeErrorRange
-      500, // largeErrorTimeout
-      5    // slew rate
-  };
+// lateral motion controller
+lemlib::ControllerSettings linearController(10, // proportional gain (kP)
+                                            0, // integral gain (kI)
+                                            3, // derivative gain (kD)
+                                            3, // anti windup
+                                            1, // small error range, in inches
+                                            100, // small error range timeout, in milliseconds
+                                            3, // large error range, in inches
+                                            500, // large error range timeout, in milliseconds
+                                            20 // maximum acceleration (slew)
+);
 
-  // turning PID
-  lemlib::ControllerSettings angularController{
-      5,   // kP //WAS 4
-      50,  // kD
-      1,   // smallErrorRange
-      100, // smallErrorTimeout
-      3,   // largeErrorRange
-      500, // largeErrorTimeout
-      40   // slew rate
-  };
+// angular motion controller
+lemlib::ControllerSettings angularController(2, // proportional gain (kP)
+                                             0, // integral gain (kI)
+                                             10, // derivative gain (kD)
+                                             3, // anti windup
+                                             1, // small error range, in degrees
+                                             100, // small error range timeout, in milliseconds
+                                             3, // large error range, in degrees
+                                             500, // large error range timeout, in milliseconds
+                                             0 // maximum acceleration (slew)
+);
 
   // create the chassis
-  lemlib::Chassis chassis(drivetrain, lateralController, angularController,
+  lemlib::Chassis chassis(drivetrain, linearController, angularController,
                           sensors);
 
 /**
@@ -109,6 +105,8 @@ void on_center_button() {
         pros::lcd::print(0, "x: %f", pose.x); // print the x position
         pros::lcd::print(1, "y: %f", pose.y); // print the y position
         pros::lcd::print(2, "heading: %f", pose.theta); // print the heading
+        pros::lcd::print(3, "bozo: %f", left_front_motor.get_position()); // print the heading
+        pros::lcd::print(4, "bozo100: %f", right_front_motor.get_position()); // print the heading
         pros::delay(10);
     }
 }
@@ -158,44 +156,83 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
+    pros::ADIDigitalOut wings('A');
+
+  pros::ADIDigitalOut wing2('B');
+
+  // set wings to close
+  wings.set_value(false);
+  wing2.set_value(false);
 
   bool skills = false;
-  if (skills == true)
+  if (skills)
+
+
   {
-      pros::ADIAnalogOut wing('A');
 
-      wing.set_value(false);
+    auto catapult = okapi::MotorGroup({13, -20});
+    
+    catapult.moveVoltage(12000);
+    pros::delay(50 * 1000);
+    catapult.moveVoltage(0);
 
-      auto catapult = okapi::MotorGroup({-13, 20});
-
-      catapult.moveVoltage(12000);
-
-      pros::delay(50 * 1000);
-
-      catapult.moveVoltage(0);
-      chassis.setPose(0, 0 , 326);
-
-      chassis.turnTo(0, 1, 1000, true, 80, false);
-
-      chassis.setPose(46, 59, 270);
-
-      chassis.follow(path_txt, 15, 20000, true, true);
-      wing.set_value(true);
-      pros::delay(4*1000);
-      wing.set_value(true);
-
-      pros::delay(2000);
-  }
-
+    chassis.tank(100, 120, 70);
+    chassis.cancelMotion();
+    pros::delay(350);
+    //leftMotors.move_voltage(12000);
   okapi::MotorGroup e = {10, 2};
   okapi::MotorGroup g = {12, 1};
 
-  e.moveVoltage(12000);
-  g.moveVoltage(12000);
+  chassis.tank(127, 111);
+  pros::delay(700);
+  wings.set_value(true);
+  wing2.set_value(true);
+  chassis.tank(127, 111);
+  pros::delay(4300);
+  chassis.tank(-100, -100);
   pros::delay(2000);
+  chassis.tank(127, 124);
+  pros::delay(2000);
+  chassis.tank(-100, -100);
+  pros::delay(2000);
+  chassis.tank(127, 124);
+  pros::delay(2000);
+  chassis.tank(-100, -100);
+  pros::delay(2000);
+  chassis.tank(127, 124);
+  pros::delay(2000);
+  chassis.tank(-100, -100);
+  pros::delay(2000);
+  chassis.tank(127, 124);
 
-  e.moveVoltage(0);
-  g.moveVoltage(0);
+
+  chassis.cancelAllMotions();
+
+
+    
+    /*
+      pros::ADIAnalogOut wing('A');
+      pros::ADIAnalogOut wing2('B');
+
+      wing.set_value(false);
+      wing2.set_value(false);
+      chassis.setPose(42.204, 57.571, 270);
+
+      chassis.follow(path_txt, 15, 200000, true, true);
+      wing.set_value(true);
+      wing2.set_value(true);
+      */
+  } else {
+      chassis.tank(127, 127);
+      pros::delay(5000);
+      chassis.tank(-100, -100);
+      pros::delay(2000);
+      chassis.cancelAllMotions();
+
+
+  }
+
+
 
 
 
@@ -222,19 +259,20 @@ void opcontrol() {
   // initializes the controller
   okapi::Controller master(okapi::ControllerId::master);
   // initialize motor groups in the chassis (drivetrain);
-  auto chassis = okapi::ChassisControllerBuilder()
+  auto drive = okapi::ChassisControllerBuilder()
                      .withMotors({10, 2}, {-12, -1})
                      .withDimensions({okapi::AbstractMotor::gearset::green},
                                      {{4_in, 12.5_in}, okapi::imev5GreenTPR})
                      .build();
   // abstraction for the motors as a skid steer (tank) drivetrain
   auto model =
-      std::dynamic_pointer_cast<okapi::SkidSteerModel>(chassis->getModel());
+      std::dynamic_pointer_cast<okapi::SkidSteerModel>(drive->getModel());
 
 
   // initializing motor groups
-  auto intake = okapi::MotorGroup({3});
-  auto catapult = okapi::MotorGroup({-13, 20});
+  auto intake = okapi::MotorGroup({14});
+  auto descore = okapi::MotorGroup({3});
+  auto catapult = okapi::MotorGroup({13, -20});
   auto block = okapi::MotorGroup({19, -18});
 
   // initializing controller buttons
@@ -244,6 +282,8 @@ void opcontrol() {
   auto r2 = okapi::ControllerButton(okapi::ControllerDigital::R2);
   auto wingIn = okapi::ControllerButton(okapi::ControllerDigital::left);
   auto wingOut = okapi::ControllerButton(okapi::ControllerDigital::right);
+  auto  dein = okapi::ControllerButton(okapi::ControllerDigital::A);
+  auto dout = okapi::ControllerButton(okapi::ControllerDigital::Y);
 
   auto x = okapi::ControllerButton(okapi::ControllerDigital::X);
   auto b = okapi::ControllerButton(okapi::ControllerDigital::B);
@@ -254,22 +294,25 @@ void opcontrol() {
   // initialize pneumatics
   pros::ADIDigitalOut wings('A');
 
-  pros::ADIDigitalOut end('B');
-
-  end.set_value(false);
+  pros::ADIDigitalOut wing2('B');
 
   // set wings to close
   wings.set_value(false);
+  wing2.set_value(false);
 
   // prevents jerks
   intake.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
   catapult.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
+
+  bool blockState = false;
 
   while (true) {
     // gets input from the joysticks
     model->arcade(master.getAnalog(okapi::ControllerAnalog::rightX),
                   master.getAnalog(okapi::ControllerAnalog::leftY),
                   master.getAnalog(okapi::ControllerAnalog::leftX));
+
+   // chassis.tank(master.getAnalog(okapi::ControllerAnalog::rightY) * 127, master.getAnalog(okapi::ControllerAnalog::leftY) * 127);
 
     // controls intakes
     if (upArrow.isPressed() == true) {
@@ -289,25 +332,33 @@ void opcontrol() {
 
 
     if (x.isPressed() == true) {
-      block.moveVoltage(6000);
+      blockState = true;
     } else if (b.isPressed() == true) {
-      block.moveVoltage(-6000);
+      blockState = false;
+    }
+
+    if (blockState) block.moveVoltage(12000);
+    else block.moveVoltage(0);
+
+
+      if (dein.isPressed() == true) {
+      descore.moveVoltage(12000);
+    } else if (dout.isPressed() == true) {
+      descore.moveVoltage(-12000);
     } else {
-      block.moveVoltage(0);
+      descore.moveVoltage(0);
     }
 
     // pnuematics logic
     if (wingOut.isPressed() == true) {
       wings.set_value(true);
+      wing2.set_value(true);
     } else if (wingIn.isPressed() == true) {
       wings.set_value(false);
+      wing2.set_value(false);
     }
 
-    if (a.isPressed() == true) {
-      end.set_value(true);
-    } else if (y.isPressed() == true) {
-      end.set_value(false);
-    }
+
 
 
 
