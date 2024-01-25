@@ -1,13 +1,9 @@
 #include "main.h"
 #include "lemlib/chassis/chassis.hpp"
-#include "okapi/api/chassis/model/chassisModel.hpp"
-#include "okapi/api/units/QAngle.hpp"
-#include "okapi/impl/device/button/controllerButton.hpp"
-#include "okapi/impl/device/controller.hpp"
-#include "okapi/impl/device/controllerUtil.hpp"
-#include "okapi/impl/device/motor/motorGroup.hpp"
 #include "pros/adi.hpp"
 #include "pros/llemu.hpp"
+#include "pros/misc.h"
+#include "pros/misc.hpp"
 #include "pros/motors.h"
 #include "pros/motors.hpp"
 #include "pros/rtos.hpp"
@@ -15,7 +11,6 @@
 
 ASSET(path_txt);
 
-using namespace okapi::literals;
 
 
   pros::Motor left_front_motor(10, pros::E_MOTOR_GEAR_BLUE, true);
@@ -105,8 +100,10 @@ void on_center_button() {
         pros::lcd::print(0, "x: %f", pose.x); // print the x position
         pros::lcd::print(1, "y: %f", pose.y); // print the y position
         pros::lcd::print(2, "heading: %f", pose.theta); // print the heading
-        pros::lcd::print(3, "bozo: %f", left_front_motor.get_position()); // print the heading
-        pros::lcd::print(4, "bozo100: %f", right_front_motor.get_position()); // print the heading
+        pros::lcd::print(3, "l front: %f", left_front_motor.get_position()); // print the heading
+        pros::lcd::print(4, "r front: %f", right_front_motor.get_position()); // print the heading
+        pros::lcd::print(5, "l back: %f", left_back_motor.get_position()); // print the heading
+        pros::lcd::print(6, "r back: %f", right_back_motor.get_position()); // print the heading
         pros::delay(10);
     }
 }
@@ -164,24 +161,26 @@ void autonomous() {
   wings.set_value(false);
   wing2.set_value(false);
 
-  bool skills = false;
+  bool skills = true;
   if (skills)
 
 
   {
 
-    auto catapult = okapi::MotorGroup({13, -20});
+    /*
+
+    auto catapult = pros::MotorGroup({13, -20});
     
-    catapult.moveVoltage(12000);
+    catapult.move_voltage(12000);
     pros::delay(50 * 1000);
-    catapult.moveVoltage(0);
+    catapult.move_voltage(0);
 
     chassis.tank(100, 120, 70);
     chassis.cancelMotion();
     pros::delay(350);
     //leftMotors.move_voltage(12000);
-  okapi::MotorGroup e = {10, 2};
-  okapi::MotorGroup g = {12, 1};
+  pros::MotorGroup e = pros::MotorGroup({10, 2});
+  pros::MotorGroup g = pros::MotorGroup({12, 1});
 
   chassis.tank(127, 111);
   pros::delay(700);
@@ -207,21 +206,14 @@ void autonomous() {
 
 
   chassis.cancelAllMotions();
+*/
 
-
-    
-    /*
-      pros::ADIAnalogOut wing('A');
-      pros::ADIAnalogOut wing2('B');
-
-      wing.set_value(false);
-      wing2.set_value(false);
+  
       chassis.setPose(42.204, 57.571, 270);
 
       chassis.follow(path_txt, 15, 200000, true, true);
-      wing.set_value(true);
-      wing2.set_value(true);
-      */
+
+      
   } else {
       chassis.tank(127, 127);
       pros::delay(5000);
@@ -257,39 +249,19 @@ void autonomous() {
  */
 void opcontrol() {
   // initializes the controller
-  okapi::Controller master(okapi::ControllerId::master);
+  pros::Controller master(pros::E_CONTROLLER_MASTER);
   // initialize motor groups in the chassis (drivetrain);
-  auto drive = okapi::ChassisControllerBuilder()
-                     .withMotors({10, 2}, {-12, -1})
-                     .withDimensions({okapi::AbstractMotor::gearset::green},
-                                     {{4_in, 12.5_in}, okapi::imev5GreenTPR})
-                     .build();
   // abstraction for the motors as a skid steer (tank) drivetrain
-  auto model =
-      std::dynamic_pointer_cast<okapi::SkidSteerModel>(drive->getModel());
 
 
   // initializing motor groups
-  auto intake = okapi::MotorGroup({14});
-  auto descore = okapi::MotorGroup({3});
-  auto catapult = okapi::MotorGroup({13, -20});
-  auto block = okapi::MotorGroup({19, -18});
+  auto intake = pros::MotorGroup({14});
+  auto descore = pros::MotorGroup({3});
+  auto catapult = pros::MotorGroup({13, -20});
+  auto block =  pros::MotorGroup({19, -18});
 
-  // initializing controller buttons
-  auto upArrow = okapi::ControllerButton(okapi::ControllerDigital::L1);
-  auto downArrow = okapi::ControllerButton(okapi::ControllerDigital::L2);
-  auto r1 = okapi::ControllerButton(okapi::ControllerDigital::R1);
-  auto r2 = okapi::ControllerButton(okapi::ControllerDigital::R2);
-  auto wingIn = okapi::ControllerButton(okapi::ControllerDigital::left);
-  auto wingOut = okapi::ControllerButton(okapi::ControllerDigital::right);
-  auto  dein = okapi::ControllerButton(okapi::ControllerDigital::A);
-  auto dout = okapi::ControllerButton(okapi::ControllerDigital::Y);
 
-  auto x = okapi::ControllerButton(okapi::ControllerDigital::X);
-  auto b = okapi::ControllerButton(okapi::ControllerDigital::B);
 
-  auto a = okapi::ControllerButton(okapi::ControllerDigital::A);
-  auto y = okapi::ControllerButton(okapi::ControllerDigital::Y);
 
   // initialize pneumatics
   pros::ADIDigitalOut wings('A');
@@ -301,59 +273,56 @@ void opcontrol() {
   wing2.set_value(false);
 
   // prevents jerks
-  intake.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
-  catapult.setBrakeMode(okapi::AbstractMotor::brakeMode::coast);
+  intake.set_brake_modes(pros::E_MOTOR_BRAKE_COAST);
+  catapult.set_brake_modes(pros::E_MOTOR_BRAKE_COAST);
 
   bool blockState = false;
 
   while (true) {
     // gets input from the joysticks
-    model->arcade(master.getAnalog(okapi::ControllerAnalog::rightX),
-                  master.getAnalog(okapi::ControllerAnalog::leftY),
-                  master.getAnalog(okapi::ControllerAnalog::leftX));
-
+    chassis.arcade(master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X), master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y));
    // chassis.tank(master.getAnalog(okapi::ControllerAnalog::rightY) * 127, master.getAnalog(okapi::ControllerAnalog::leftY) * 127);
 
     // controls intakes
-    if (upArrow.isPressed() == true) {
-      intake.moveVoltage(-12000);
-    } else if (downArrow.isPressed() == true) {
-      intake.moveVoltage(12000);
+    if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L1) == true) {
+      intake.move_voltage(-12000);
+    } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
+      intake.move_voltage(12000);
     } else {
-      intake.moveVoltage(0);
+      intake.move_voltage(0);
     }
 
     // controls catapult
-    if (r1.isPressed() == true) {
-      catapult.moveVoltage(12000);
+    if (master.get_digital(pros::E_CONTROLLER_DIGITAL_R1) == true) {
+      catapult.move_voltage(12000);
     } else {
-      catapult.moveVoltage(0);
+      catapult.move_voltage(0);
     }
 
 
-    if (x.isPressed() == true) {
+    if (master.get_digital(pros::E_CONTROLLER_DIGITAL_X) == true) {
       blockState = true;
-    } else if (b.isPressed() == true) {
+    } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_B) == true) {
       blockState = false;
     }
 
-    if (blockState) block.moveVoltage(12000);
-    else block.moveVoltage(0);
+    if (blockState) block.move_voltage(12000);
+    else block.move_voltage(0);
 
 
-      if (dein.isPressed() == true) {
-      descore.moveVoltage(12000);
-    } else if (dout.isPressed() == true) {
-      descore.moveVoltage(-12000);
+      if (master.get_digital(pros::E_CONTROLLER_DIGITAL_A) == true) {
+      descore.move_voltage(12000);
+    } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_Y) == true) {
+      descore.move_voltage(-12000);
     } else {
-      descore.moveVoltage(0);
+      descore.move_voltage(0);
     }
 
     // pnuematics logic
-    if (wingOut.isPressed() == true) {
+    if (master.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT) == true) {
       wings.set_value(true);
       wing2.set_value(true);
-    } else if (wingIn.isPressed() == true) {
+    } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT) == true) {
       wings.set_value(false);
       wing2.set_value(false);
     }
