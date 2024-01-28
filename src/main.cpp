@@ -10,7 +10,8 @@
 #include <string>
 
 ASSET(path_txt);
-
+ASSET(next_txt);
+ASSET(after_txt);
 
 
   pros::Motor left_front_motor(10, pros::E_MOTOR_GEAR_BLUE, true);
@@ -207,19 +208,48 @@ void autonomous() {
 
   chassis.cancelAllMotions();
 */
-
+    auto catapult = pros::MotorGroup({13, -20});
+    
+    catapult.move_voltage(12000);
+    //pros::delay(40 * 1000);
+    catapult.move_voltage(0);
+      chassis.setPose(46.958, 56.013, 240);
+      //chassis.moveToPose(37, 53, 240, 5000, {}, false);
   
-      chassis.setPose(42.204, 57.571, 270);
+      //chassis.moveToPose(30.204, 57.571, 270, 5000, {}, false)
 
-      chassis.follow(path_txt, 15, 200000, true, true);
+
+      chassis.follow(path_txt, 17, 10000, true, false);
+/*
+      chassis.setPose(-59.849, 23.809, 180);
+      chassis.follow(next_txt, 10, 4000, false, false);
+      chassis.setPose(-5.537, 30.169, 270);
+      chassis.follow(after_txt, 10, 4000, true, false);
+*/
+      chassis.tank(-67, -60);
+      pros::delay(1500);
+      wings.set_value(true);
+      wing2.set_value(true);
+      chassis.tank(127, 127);
+      pros::delay(1500);
+      wings.set_value(false);
+      wing2.set_value(false);
+      chassis.tank(-77,- 70);
+      pros::delay(1500);
+      wings.set_value(true);
+      wing2.set_value(true);
+      chassis.tank(127,127);
+      pros::delay(1500);
+      chassis.cancelAllMotions();
+
 
       
   } else {
-      chassis.tank(127, 127);
-      pros::delay(5000);
-      chassis.tank(-100, -100);
-      pros::delay(2000);
-      chassis.cancelAllMotions();
+      //chassis.tank(127, 127);
+      //pros::delay(5000);
+      //chassis.tank(-100, -100);
+      //pros::delay(2000);
+      //chassis.cancelAllMotions();
 
 
   }
@@ -280,7 +310,7 @@ void opcontrol() {
 
   while (true) {
     // gets input from the joysticks
-    chassis.arcade(master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X), master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y));
+    chassis.arcade(master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y),master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X));
    // chassis.tank(master.getAnalog(okapi::ControllerAnalog::rightY) * 127, master.getAnalog(okapi::ControllerAnalog::leftY) * 127);
 
     // controls intakes
