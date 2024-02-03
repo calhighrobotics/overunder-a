@@ -1,5 +1,7 @@
 #include "main.h"
 #include "lemlib/chassis/chassis.hpp"
+#include "lemlib/pose.hpp"
+#include "lemlib/timer.hpp"
 #include "pros/adi.hpp"
 #include "pros/llemu.hpp"
 #include "pros/misc.h"
@@ -12,7 +14,9 @@
 ASSET(path_txt);
 ASSET(next_txt);
 ASSET(after_txt);
+const double Pi = 3.14159265358979323846264;
 
+const double toRad = Pi/180;
 
   pros::Motor left_front_motor(10, pros::E_MOTOR_GEAR_BLUE, true);
   pros::Motor left_back_motor(2, pros::E_MOTOR_GEAR_BLUE, true);
@@ -31,6 +35,7 @@ ASSET(after_txt);
       8
   };
 
+
   pros::Imu inertial_sensor(11); // port 2
 
   // odometry struct
@@ -44,25 +49,25 @@ ASSET(after_txt);
 
   // forward/backward PID
 // lateral motion controller
-lemlib::ControllerSettings linearController(10, // proportional gain (kP)
+lemlib::ControllerSettings linearController(20,//10, // proportional gain (kP)
                                             0, // integral gain (kI)
-                                            3, // derivative gain (kD)
+                                            120, // derivative gain (kD)
                                             3, // anti windup
-                                            1, // small error range, in inches
-                                            100, // small error range timeout, in milliseconds
+                                            0.5, // small error range, in inches
+                                            100, //FIX// small error range timeout, in milliseconds
                                             3, // large error range, in inches
-                                            500, // large error range timeout, in milliseconds
-                                            20 // maximum acceleration (slew)
+                                            500, //FIX// large error range timeout, in milliseconds
+                                            40 // maximum acceleration (slew)
 );
 
 // angular motion controller
-lemlib::ControllerSettings angularController(2, // proportional gain (kP)
+lemlib::ControllerSettings angularController(5, // proportional gain (kP)
                                              0, // integral gain (kI)
-                                             10, // derivative gain (kD)
+                                             28, // derivative gain (kD)
                                              3, // anti windup
                                              1, // small error range, in degrees
                                              100, // small error range timeout, in milliseconds
-                                             3, // large error range, in degrees
+                                             2, // large error range, in degrees
                                              500, // large error range timeout, in milliseconds
                                              0 // maximum acceleration (slew)
 );
@@ -70,7 +75,6 @@ lemlib::ControllerSettings angularController(2, // proportional gain (kP)
   // create the chassis
   lemlib::Chassis chassis(drivetrain, linearController, angularController,
                           sensors);
-
 /**
  * A callback function for LLEMU's center button.
  *
@@ -162,7 +166,7 @@ void autonomous() {
   wings.set_value(false);
   wing2.set_value(false);
 
-  bool skills = true;
+  bool skills = false;
   if (skills)
 
 
@@ -208,11 +212,7 @@ void autonomous() {
 
   chassis.cancelAllMotions();
 */
-    auto catapult = pros::MotorGroup({13, -20});
-    
-    catapult.move_voltage(12000);
-    //pros::delay(40 * 1000);
-    catapult.move_voltage(0);
+
       chassis.setPose(46.958, 56.013, 240);
       //chassis.moveToPose(37, 53, 240, 5000, {}, false);
   
@@ -245,11 +245,104 @@ void autonomous() {
 
       
   } else {
+        //auto block =  pros::MotorGroup({19, -18});
+      //block.move_voltage(12000);
+      chassis.setPose(45.945, 56.904, 315);
+      chassis.moveToPoint(chassis.getPose().x+7, chassis.getPose().y-7, 2000, {.forwards=false, .maxSpeed=100}, false);
+      chassis.turnToHeadingLeft(248, 5000, {.forwards=true, .maxSpeed=70}, false);
+          auto catapult = pros::MotorGroup({13, -20});
+
+    
+    catapult.move_voltage(12000);
+    //pros::delay(34 * 1000);
+    
+      chassis.moveToPose(23, 59, 270, 2000, {}, true);
+      pros::delay(2000);
+
+      catapult.move_voltage(0);
+
+      chassis.moveToPoint(-32, 59, 2000, {}, false);
+      chassis.moveToPose(-57, 30, 180, 2000,{}, false);
+
+      chassis.moveToPose(-59, 43 , 180, 1500, {.forwards=false}, false);
+
+      chassis.moveToPoint(-59, 25, 1000, {}, false);
+
+      chassis.moveToPose(-59, 43 , 180, 1500, {.forwards=false}, false);
+
+      chassis.moveToPoint(-59, 25, 1000, {}, false);
+
+
+      //chassis.moveToPose(-36, 59, 270, 5000, {.forwards=false}, false);
+      chassis.turnToHeading(180, 2000, {}, false);
+      chassis.moveToPoint(-57, 39 , 2000, {.forwards=false}, false);
+      /*
+      chassis.turnToHeading(180, 1000, {}, false);
+      chassis.tank(127, 127);
+      pros::delay(1000);
+      chassis.turnToHeading(180, 1000, {}, false);
+      chassis.moveToPoint(-57, 38 , 2000, {.forwards=false}, false);
+      chassis.tank(127, 127);
+      pros::delay(1000);
+      chassis.moveToPoint(-60, 20 , 2000, {.forwards=true}, false);
+      */
+
+  
+      //chassis.moveToPoint(-60, 49 , 2000, {.forwards=false}, false);
+      chassis.turnToPoint(-16, 27, 2000, {}, false);
+     chassis.moveToPoint(-16, 27 , 2000, {.forwards=true}, false);
+
+
+      //chassis.turnToHeading(230, 5000, {}, false);
+
+        wings.set_value(true);
+      wing2.set_value(true);
+           chassis.moveToPose(-43, 1 ,270,  2000, {.forwards=true}, false);
+
+      //chassis.moveToPoint(-42, 9 , 5000, {.forwards=true}, false);
       //chassis.tank(127, 127);
-      //pros::delay(5000);
-      //chassis.tank(-100, -100);
       //pros::delay(2000);
-      //chassis.cancelAllMotions();
+
+      wings.set_value(false);
+      wing2.set_value(false);
+
+      pros::delay(500);
+
+      chassis.moveToPoint(chassis.getPose().x+25, chassis.getPose().y, 2000, {.forwards=false}, false);
+
+     wings.set_value(true);
+      wing2.set_value(true);
+
+      chassis.turnToHeading(270, 1000, {}, false);
+
+      chassis.tank(127, 127);
+      pros::delay(1000);
+
+      //chassis.moveToPoint(-42, 9 , 5000, {.forwards=true}, false);
+
+            wings.set_value(false);
+      wing2.set_value(false);
+
+      chassis.turnToHeading(270, 2000, {}, false);
+
+      chassis.moveToPoint(chassis.getPose().x+25, chassis.getPose().y, 2000, {.forwards=false}, false);
+      chassis.turnToPoint(-41, -40, 2000, {}, false);
+      //wings.set_value(true);
+      //wing2.set_value(true);
+      chassis.moveToPoint(-41, -40, 2000, {}, false);
+
+      chassis.turnToHeadingLeft(360, 5000, {.forwards=true, .maxSpeed=70}, false);
+
+      chassis.moveToPoint(-55, -49 , 2000, {.forwards=false}, false);
+
+            chassis.moveToPoint(-60, -30 , 2000, {.forwards=true}, false);
+
+      //chassis.turnToHeading(190, 5000, {}, false);
+
+      
+
+
+      //chassis.moveToPoint(chassis.getPose().x+(-4*cos(210*toRad)), chassis.getPose().y+(-4*sin(210*toRad)), 50000, false, 70, false);
 
 
   }
@@ -278,10 +371,13 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
+ 
+
   // initializes the controller
   pros::Controller master(pros::E_CONTROLLER_MASTER);
   // initialize motor groups in the chassis (drivetrain);
   // abstraction for the motors as a skid steer (tank) drivetrain
+    //autonomous();
 
 
   // initializing motor groups
@@ -328,31 +424,21 @@ void opcontrol() {
     } else {
       catapult.move_voltage(0);
     }
-
-
-    if (master.get_digital(pros::E_CONTROLLER_DIGITAL_X) == true) {
+    if ((master.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT) == true))  {
       blockState = true;
-    } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_B) == true) {
+    } 
+    else if ((master.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN) == true)) {
       blockState = false;
     }
 
     if (blockState) block.move_voltage(12000);
     else block.move_voltage(0);
 
-
-      if (master.get_digital(pros::E_CONTROLLER_DIGITAL_A) == true) {
-      descore.move_voltage(12000);
-    } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_Y) == true) {
-      descore.move_voltage(-12000);
-    } else {
-      descore.move_voltage(0);
-    }
-
     // pnuematics logic
-    if (master.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT) == true) {
+    if (master.get_digital(pros::E_CONTROLLER_DIGITAL_Y) == true) {
       wings.set_value(true);
       wing2.set_value(true);
-    } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT) == true) {
+    } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_B) == true) {
       wings.set_value(false);
       wing2.set_value(false);
     }
@@ -363,5 +449,9 @@ void opcontrol() {
 
     // Delay in order to avoid a super-fast control loop
     pros::delay(20);
+    
   }
+
+
+
 }
